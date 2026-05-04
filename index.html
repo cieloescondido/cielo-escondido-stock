@@ -702,9 +702,9 @@ window.firebaseImports = { signInAnonymously, doc, setDoc, getDoc, onSnapshot };
     <p class="subtitle">Pegá los datos del Excel/Sheets aquí. Una fila por producto.</p>
     <div class="alert alert-lemon">
       <strong>Formato (separado por TAB o coma):</strong><br>
-      Categoría | Tipo | Diseño | Color | Talle | Precio | Costo | Casa Caseros | Feria Chicoana | Depósito | Feria Itinerante
+      Categoría | Tipo | Diseño | Color | Talle | Precio | Costo | Depósito / casa | Casa caseros | Feria Chicoana | Feria itinerante
     </div>
-    <textarea id="csv-input" rows="10" style="font-family:monospace;font-size:12px" placeholder="Ropa	Remera Regular	Sol de Mayo	Blanco	M	8500	2500	5	8	12	0
+    <textarea id="csv-input" rows="10" style="font-family:monospace;font-size:12px" placeholder="Ropa	Remera Regular	Sol de Mayo	Blanco	M	8500	2500	12	5	8	0
 Objeto	Llavero	Escudo Salta	—	—	2500	600	10	0	15	0"></textarea>
     <div class="btn-group">
       <button class="cbtn b-black" onclick="procesarCSV()">Importar productos</button>
@@ -738,7 +738,7 @@ function waitForFirebase() {
 }
 
 const DEFAULT_CFG = {
-  ubicaciones:['Casa Caseros','Feria Chicoana','Depósito / casa','Feria itinerante'],
+  ubicaciones:['Depósito / casa','Casa Caseros','Feria Chicoana','Feria itinerante'],
   categorias:['Ropa','Objeto'],
   tipos_ropa:['Remera Regular','Remera Oversize','Remera Boxy Fit','Musculosa','Buzo con Capucha Regular','Buzo con Capucha Oversize','Buzo con Capucha Boxy Fit','Buzo sin Capucha Regular','Buzo sin Capucha Oversize'],
   tipos_objeto:['Llavero','Imán','Jarro','Vaso','Cuaderno','Tote Bag','Sticker'],
@@ -1285,7 +1285,7 @@ function renderStock(){
       <th>Talle</th>
       <th class="center">Stock Total</th>
       <th class="center">Precio $</th>
-      <th class="center">Costo $</th>
+      ${MODE!=='vendor'?'<th class="center">Costo $</th>':''}
       ${cols.map(c=>`<th class="center">${c}</th>`).join('')}
     </tr></thead>
     <tbody>${PRODS.map(p=>{
@@ -1299,7 +1299,7 @@ function renderStock(){
         <td>${escapeHtml(p.talle||'')}</td>
         <td class="center"><span class="tag ${tagCls}">${t}</span></td>
         <td class="center">${escapeHtml((p.precio||0).toLocaleString('es-AR'))}</td>
-        <td class="center">${escapeHtml((p.costo||0).toLocaleString('es-AR'))}</td>
+        ${MODE!=='vendor'?`<td class="center">${escapeHtml((p.costo||0).toLocaleString('es-AR'))}</td>`:''}
         ${cols.map(c=>`<td class="center">${stockEnUbi(p,c)}</td>`).join('')}
       </tr>`;
     }).join('')}</tbody></table>
@@ -1341,10 +1341,10 @@ function renderProductos(){
           <button class="cbtn b-coral sm" onclick="eliminarProducto(${realIdx})">✕</button>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px;margin-bottom:10px">
+      <div style="display:grid;grid-template-columns:${MODE==='vendor'?'1fr':'1fr 1fr 1fr'};gap:8px;font-size:12px;margin-bottom:10px">
         <div><span class="text-muted">Precio</span><br><span class="bold">$${(p.precio||0).toLocaleString('es-AR')}</span></div>
-        <div><span class="text-muted">Costo</span><br><span>$${(p.costo||0).toLocaleString('es-AR')}</span></div>
-        <div><span class="text-muted">Ganancia</span><br><span class="text-emerald bold">$${((p.precio||0)-(p.costo||0)).toLocaleString('es-AR')}</span></div>
+        ${MODE!=='vendor'?`<div><span class="text-muted">Costo</span><br><span>$${(p.costo||0).toLocaleString('es-AR')}</span></div>`:''}
+        ${MODE!=='vendor'?`<div><span class="text-muted">Ganancia</span><br><span class="text-emerald bold">$${((p.precio||0)-(p.costo||0)).toLocaleString('es-AR')}</span></div>`:''}
       </div>
       <div style="display:grid;grid-template-columns:repeat(${CFG.ubicaciones.length},1fr);gap:6px;font-size:11px;text-align:center;background:#F9F7F2;border-radius:8px;padding:8px">
         ${CFG.ubicaciones.map(u=>`<div><div class="text-muted" style="font-size:10px">${u.split(' ')[0]}</div><div class="bold" style="font-size:13px">${stockEnUbi(p,u)}</div></div>`).join('')}
@@ -1615,7 +1615,7 @@ function generarVendorLink(){
 function openCSVModal(){ openModal('modal-csv'); }
 
 function descargarTemplateCSV(){
-  let csv = 'Categoría\tTipo\tDiseño\tColor\tTalle\tPrecio\tCosto\tCasa Caseros\tFeria Chicoana\tDepósito / casa\tFeria itinerante\n';
+  let csv = 'Categoría\tTipo\tDiseño\tColor\tTalle\tPrecio\tCosto\tDepósito / casa\tCasa Caseros\tFeria Chicoana\tFeria itinerante\n';
   csv += 'Ropa\tRemera Regular\tSol de Mayo\tBlanco\tM\t8500\t2500\t5\t8\t12\t0\n';
   csv += 'Ropa\tBuzo con Capucha Regular\tEscudo Salta\tNegro\tL\t18000\t6000\t2\t3\t6\t0\n';
   csv += 'Objeto\tLlavero\tEscudo Salta\t—\tÚnico\t2500\t600\t10\t0\t15\t0\n';
@@ -1631,10 +1631,29 @@ async function procesarCSV(){
   const lines = text.split('\n').filter(l=>l.trim());
   let importados=0, errores=0;
 
-  // Detect if header has "Stock Total" to know the format
-  const firstLine = lines[0] || '';
-  const firstCols = firstLine.includes('\t') ? firstLine.split('\t') : firstLine.split(',');
-  const hasStockTotal = firstCols.some(c => c.trim().toLowerCase().includes('stock total'));
+  // Detectar formato analizando la primera línea de datos (no el encabezado)
+  // Formato original:      Cat|Tipo|Diseño|Color|Talle|Precio|Costo|...ubis... → mínimo 7+ubis cols
+  // Formato con StockTotal: Cat|Tipo|Diseño|Color|Talle|StockTotal|Precio|Costo|...ubis... → mínimo 8+ubis cols
+  //
+  // Detección: si la primera línea es encabezado (contiene texto no numérico en col[5]) → leer la segunda.
+  // Luego: si la columna [5] de la primera fila de datos es un número PEQUEÑO (stock total típico)
+  // y la columna [6] también es número, pero [6] > [5] (precio > stock), es formato StockTotal.
+  // Método más robusto: contar columnas. Con N ubicaciones:
+  //   - original:      5 + 2 + N = 7+N cols
+  //   - con StockTotal: 5 + 1 + 2 + N = 8+N cols
+  // Si hay más columnas que 7+N, asumimos formato con StockTotal.
+
+  const N = CFG.ubicaciones.length;
+
+  // Encontrar la primera línea de datos reales (saltar encabezado si existe)
+  let firstDataLine = lines[0];
+  const firstCols0 = firstDataLine.includes('\t') ? firstDataLine.split('\t') : firstDataLine.split(',');
+  const isHeader = firstCols0.some(c => c.trim().toLowerCase().includes('categor') || c.trim().toLowerCase().includes('stock total'));
+  if(isHeader) firstDataLine = lines[1] || lines[0];
+
+  const firstDataCols = firstDataLine.includes('\t') ? firstDataLine.split('\t') : firstDataLine.split(',');
+  // Si tiene 8+N o más columnas → formato con Stock Total
+  const hasStockTotal = firstDataCols.length >= (8 + N);
 
   for(const line of lines){
     const cols = line.includes('\t') ? line.split('\t') : line.split(',');
@@ -1652,19 +1671,16 @@ async function procesarCSV(){
     let precio, costo, stockCols;
 
     if(hasStockTotal){
-      // New format: Cat|Tipo|Diseño|Color|Talle|Stock Total|Precio|Costo|...ubicaciones...|PROVEEDOR|Nombre
-      // Stock Total is col 5, skip it
+      // Formato: Cat|Tipo|Diseño|Color|Talle|StockTotal|Precio|Costo|...ubicaciones...
+      // col[5] = Stock Total (se ignora, es la suma)
       precio = cleaned[6] || '0';
-      costo = cleaned[7] || '0';
-      // Ubicaciones start at col 8
-      const allAfterCosto = cleaned.slice(8);
-      // Take only as many as ubicaciones configured, ignore PROVEEDOR and Nombre at the end
-      stockCols = allAfterCosto.slice(0, CFG.ubicaciones.length);
+      costo  = cleaned[7] || '0';
+      stockCols = cleaned.slice(8, 8 + N);
     } else {
-      // Original format: Cat|Tipo|Diseño|Color|Talle|Precio|Costo|...ubicaciones...
+      // Formato original: Cat|Tipo|Diseño|Color|Talle|Precio|Costo|...ubicaciones...
       precio = cleaned[5];
-      costo = cleaned[6];
-      stockCols = cleaned.slice(7, 7 + CFG.ubicaciones.length);
+      costo  = cleaned[6];
+      stockCols = cleaned.slice(7, 7 + N);
     }
 
     const stock={};
