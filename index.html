@@ -720,7 +720,8 @@ Objeto	Llavero	Escudo Salta	—	—	2500	600	10	0	15	0"></textarea>
 // ══════════════════════════════════════════════
 let auth = null;
 let db = null;
-let currentUserId = null;
+// ID fijo compartido — todos los dispositivos leen y escriben el mismo documento
+const SHARED_ID = 'cielo_escondido_main';
 const KEYS = {cfg:'cfg', prods:'prods', ventas:'ventas', matriz:'matriz'};
 
 // Esperar a que Firebase se cargue
@@ -763,19 +764,15 @@ async function loadAll(){
     // Esperar a que Firebase se cargue
     await waitForFirebase();
     
-    // Autenticación anónima
-    const { signInAnonymously } = window.firebaseImports;
-    if(!auth.currentUser) {
-      await signInAnonymously(auth);
-    }
-    currentUserId = auth.currentUser.uid;
+    // No se necesita autenticación — usamos un ID fijo compartido
+    // para que todos los dispositivos accedan al mismo documento
     
     // Cargar datos de Firestore
     const { doc, getDoc } = window.firebaseImports;
-    const cfgDoc = await getDoc(doc(db, 'users', currentUserId, 'data', KEYS.cfg));
-    const prodsDoc = await getDoc(doc(db, 'users', currentUserId, 'data', KEYS.prods));
-    const ventasDoc = await getDoc(doc(db, 'users', currentUserId, 'data', KEYS.ventas));
-    const matrizDoc = await getDoc(doc(db, 'users', currentUserId, 'data', KEYS.matriz));
+    const cfgDoc = await getDoc(doc(db, 'shared', SHARED_ID, 'data', KEYS.cfg));
+    const prodsDoc = await getDoc(doc(db, 'shared', SHARED_ID, 'data', KEYS.prods));
+    const ventasDoc = await getDoc(doc(db, 'shared', SHARED_ID, 'data', KEYS.ventas));
+    const matrizDoc = await getDoc(doc(db, 'shared', SHARED_ID, 'data', KEYS.matriz));
     
     if(cfgDoc.exists()) CFG = cfgDoc.data();
     if(prodsDoc.exists()) PRODS = prodsDoc.data().items || [];
@@ -785,16 +782,15 @@ async function loadAll(){
     // Listeners en tiempo real para sincronización
     setupRealtimeListeners();
   } catch(e) {
-    console.log('Loading from Firebase:', e);
+    console.log('Error cargando datos:', e);
   }
 }
 
 function setupRealtimeListeners(){
-  if(!currentUserId) return;
   const { doc, onSnapshot } = window.firebaseImports;
   
   // Listener para config
-  onSnapshot(doc(db, 'users', currentUserId, 'data', KEYS.cfg), snapshot => {
+  onSnapshot(doc(db, 'shared', SHARED_ID, 'data', KEYS.cfg), snapshot => {
     if(snapshot.exists()) {
       CFG = snapshot.data();
       const activeView = document.querySelector('.view.active');
@@ -803,7 +799,7 @@ function setupRealtimeListeners(){
   });
   
   // Listener para productos
-  onSnapshot(doc(db, 'users', currentUserId, 'data', KEYS.prods), snapshot => {
+  onSnapshot(doc(db, 'shared', SHARED_ID, 'data', KEYS.prods), snapshot => {
     if(snapshot.exists()) {
       PRODS = snapshot.data().items || [];
       const activeView = document.querySelector('.view.active');
@@ -813,7 +809,7 @@ function setupRealtimeListeners(){
   });
   
   // Listener para ventas
-  onSnapshot(doc(db, 'users', currentUserId, 'data', KEYS.ventas), snapshot => {
+  onSnapshot(doc(db, 'shared', SHARED_ID, 'data', KEYS.ventas), snapshot => {
     if(snapshot.exists()) {
       VENTAS = snapshot.data().items || [];
       const activeView = document.querySelector('.view.active');
@@ -824,34 +820,30 @@ function setupRealtimeListeners(){
 }
 
 async function saveCfg(){ 
-  if(!currentUserId) return;
   try{ 
     const { doc, setDoc } = window.firebaseImports;
-    await setDoc(doc(db, 'users', currentUserId, 'data', KEYS.cfg), CFG); 
+    await setDoc(doc(db, 'shared', SHARED_ID, 'data', KEYS.cfg), CFG); 
   }catch(e){console.error('Error saving cfg:', e);} 
 }
 
 async function saveProds(){ 
-  if(!currentUserId) return;
   try{ 
     const { doc, setDoc } = window.firebaseImports;
-    await setDoc(doc(db, 'users', currentUserId, 'data', KEYS.prods), {items: PRODS}); 
+    await setDoc(doc(db, 'shared', SHARED_ID, 'data', KEYS.prods), {items: PRODS}); 
   }catch(e){console.error('Error saving prods:', e);} 
 }
 
 async function saveVentas(){ 
-  if(!currentUserId) return;
   try{ 
     const { doc, setDoc } = window.firebaseImports;
-    await setDoc(doc(db, 'users', currentUserId, 'data', KEYS.ventas), {items: VENTAS}); 
+    await setDoc(doc(db, 'shared', SHARED_ID, 'data', KEYS.ventas), {items: VENTAS}); 
   }catch(e){console.error('Error saving ventas:', e);} 
 }
 
 async function saveMatriz(){ 
-  if(!currentUserId) return;
   try{ 
     const { doc, setDoc } = window.firebaseImports;
-    await setDoc(doc(db, 'users', currentUserId, 'data', KEYS.matriz), MATRIZ); 
+    await setDoc(doc(db, 'shared', SHARED_ID, 'data', KEYS.matriz), MATRIZ); 
   }catch(e){console.error('Error saving matriz:', e);} 
 }
 
